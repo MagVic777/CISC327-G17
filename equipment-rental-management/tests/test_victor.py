@@ -88,10 +88,45 @@ End of Sample test cases
 """
 
 
+def test_V1_get_one_nonexistent_renter(client):
+    # Attempt to retrieve a renter that doesn't exist
+    response = client.get("/renters/9999")  # Assuming 9999 is a non-existent ID
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Renter not found"
 
-def test_create_renter(client, name="Victor", email="victor@test.com"):
-    response = client.post("/renters", json={"name": name, "email": email})
-    assert response.status_code == 201
-    assert response.get_json()["name"] == name
-    assert response.get_json()["email"] == email
-    
+def test_V2_get_one_renter(client):
+    # First, create a renter
+    create_resp = client.post("/renters", json={"name": "Victor", "email": "victor@test.com"})
+    renter_id = create_resp.get_json()["id"]
+
+    # Then, retrieve the renter
+    response = client.get(f"/renters/{renter_id}")
+    assert response.status_code == 200
+    assert response.get_json()["name"] == "Victor"
+    assert response.get_json()["email"] == "victor@test.com"
+
+def test_V3_update_renter(client):
+    # Create a renter first
+    create_resp = client.post("/renters", json={"name": "Victor", "email": "victor@test.com"})
+    renter_id = create_resp.get_json()["id"]
+
+    # Then, update the renter
+    update_resp = client.put(f"/renters/{renter_id}", json={"name": "Victor Updated", "email": "victor.updated@test.com"})
+    assert update_resp.status_code == 200
+    assert update_resp.get_json()["name"] == "Victor Updated"
+    assert update_resp.get_json()["email"] == "victor.updated@test.com"
+
+def test_V4_delete_renter(client):
+    # Create a renter first
+    create_resp = client.post("/renters", json={"name": "Victor", "email": "victor@test.com"})
+    renter_id = create_resp.get_json()["id"]
+
+    # Then, delete the renter
+    delete_resp = client.delete(f"/renters/{renter_id}")
+    assert delete_resp.status_code ==  204
+
+def test_V5_delete_nonexistent_renter(client):
+    # Attempt to delete a renter that doesn't exist
+    response = client.delete("/renters/9999")  # Assuming 9999 is a non-existent ID
+    assert response.status_code == 404
+    assert response.get_json()["error"] == "Renter not found"
