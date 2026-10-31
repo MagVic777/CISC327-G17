@@ -76,6 +76,20 @@ def extend_rental(rental_id):
     return jsonify(rental.to_dict())
 
 
+
+@rentals_bp.route("/overdue", methods=["GET"])
+def overdue_rentals():
+    """Return a list of all rentals that are overdue (not returned and past due date)."""
+    results = []
+
+    for rental in store.rentals.values():
+        if rental.return_date is None and rental.due_date < date.today():
+            results.append(rental.to_dict())
+
+    return jsonify(results)
+
+
+
 @rentals_bp.route("/<int:rental_id>/deposit/release", methods=["PUT"])
 def release_deposit(rental_id):
     """Release the damage deposit hold for a returned rental.
@@ -94,3 +108,5 @@ def release_deposit(rental_id):
 
     # BUG: rental.deposit_released is never set to True here — state is not persisted.
     return jsonify({"rental_id": rental_id, "deposit_released": True})
+
+
