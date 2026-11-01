@@ -19,6 +19,7 @@ The client fixture clears stored data before each test.
 Failed assertions can reveal application defects; they are not hidden.
 """
 from datetime import date, timedelta
+from app import store
 
 
 # ============================================================
@@ -629,3 +630,73 @@ def test_V26_look_up_rentals_with_nonexistent_renter_id(client):
     assert response.get_json() == []
     assert client.get("/rentals").get_json() == [first_rental, second_rental]
 
+# ============================================================
+# Feature Enchancement: Report of overdue rentals
+# =============================================================
+
+
+def test_V27_overdue_report_includes_overdue_rental(client):
+    # First, create a renter and equipment
+    renter_resp = client.post("/renters", json={"name": "Victor", "email": "victor@test.com"})
+    assert renter_resp.status_code == 201
+    renter_id = renter_resp.get_json()["id"]
+
+    equipment_resp = client.post("/equipment", json={"name": "Ski", "category": "Winter Sports", "total_units": 1})
+    assert equipment_resp.status_code == 201
+    equipment_id = equipment_resp.get_json()["id"]
+
+    # Then, check out the equipment
+    checkout_resp = client.post("/rentals", json={"renter_id": renter_id, "equipment_id": equipment_id })
+    assert checkout_resp.status_code == 201
+    rental_id = checkout_resp.get_json()["id"]
+
+    # Set the due date to yesterday to simulate an overdue rental
+    yesterday = date.today() - timedelta(days=1)
+    store.rentals[rental_id].due_date = yesterday
+
+    # Check that the report includes the correct rental
+    response = client.get("/rentals/overdue")
+    assert response.status_code == 200
+
+    rentals = response.get_json()
+    assert len(rentals) == 1
+    assert rentals[0]["id"] == rental_id
+    assert rentals[0]["renter_id"] == renter_id
+    assert rentals[0]["equipment_id"] == equipment_id
+    assert rentals[0]["due_date"] == yesterday.isoformat()
+    assert rentals[0]["return_date"] is None
+
+
+def test_V28_overdue_report_excludes_returned_rental(client):
+    # First, create a renter and equipment
+    renter_resp = client.post("/renters", json={"name": "Victor","email": "victor@test.com"})
+    assert renter_resp.status_code == 201
+    renter_id = renter_resp.get_json()["id"]
+
+    equipment_resp = client.post("/equipment", json={"name": "Ski","category": "Winter Sports","total_units": 1})
+    assert equipment_resp.status_code == 201
+    equipment_id = equipment_resp.get_json()["id"]
+
+    # Check out the equipment and make its due date yesterday
+    checkout_resp = client.post("/rentals", json={"renter_id": renter_id,"equipment_id": equipment_id})
+    assert checkout_resp.status_code == 201
+    rental_id = checkout_resp.get_json()["id"]
+    store.rentals[rental_id].due_date = date.today() - timedelta(days=1)
+
+    # Return the equipment
+    return_resp = client.put(f"/rentals/{rental_id}/return")
+    assert return_resp.status_code == 200
+
+    # Returned rentals should not appear in the overdue report
+    response = client.get("/rentals/overdue")
+    assert response.status_code == 200
+    assert response.get_json() == []
+
+    # Confirm the rental still exists with its return date recorded
+    assert store.rentals[rental_id].return_date == date.today()
+
+def test_V29_overdue_report_returns_empty_list_when_no_rentals(client):
+    response = client.get("/rentals/overdue")
+
+    assert response.status_code == 200
+    assert response.get_json() == []
