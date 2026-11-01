@@ -9,8 +9,14 @@ program, while still separating storage from the route/model code.
 equipment = {}
 renters = {}
 rentals = {}
+issues = {}
 
-_next_ids = {"equipment": 1, "renter": 1, "rental": 1}
+_next_ids = {
+    "equipment": 1,
+    "renter": 1,
+    "rental": 1,
+    "issue": 1,
+}
 
 
 def next_id(kind):
@@ -24,4 +30,11 @@ def reset():
     equipment.clear()
     renters.clear()
     rentals.clear()
-    _next_ids.update(equipment=1, renter=1, rental=1)
+    issues.clear()
+
+    _next_ids.update(
+        equipment=1,
+        renter=1,
+        rental=1,
+        issue=1,
+    )
