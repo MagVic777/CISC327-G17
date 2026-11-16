@@ -1,6 +1,7 @@
 """Victor (Member A): return-reminder notification success tests."""
 
 from unittest.mock import patch
+from datetime import date, timedelta
 
 from app import store
 
@@ -168,3 +169,64 @@ def test_missing_equipment_status_and_availability_return_not_found(client):
     assert status_response.get_json() == {"error": "Equipment not found"}
     assert availability_response.status_code == 404
     assert availability_response.get_json() == {"error": "Equipment not found"}
+
+def test_report_damaged_ski_equipment_records_issue_and_disables_item(client):
+    """A valid damage report is stored and takes the equipment out of service."""
+    rental = _create_rental(client, equipment_name="Downhill Skis")
+
+    response = client.post(
+        f"/rentals/{rental['id']}/issue",
+        json={
+            "issue_type": "damaged",
+            "description": "  Cracked ski binding  ",
+        },
+    )
+
+    assert response.status_code == 201
+    issue = response.get_json()
+    assert issue == {
+        "id": 1,
+        "rental_id": rental["id"],
+        "equipment_id": rental["equipment_id"],
+        "issue_type": "damaged",
+        "description": "Cracked ski binding",
+        "reported_date": date.today().isoformat(),
+    }
+    assert store.issues[issue["id"]].description == "Cracked ski binding"
+    assert store.equipment[rental["equipment_id"]].is_available is False
+
+
+def test_extend_active_ski_rental_moves_due_date_three_days(client):
+    """Extending an active rental changes its due date."""
+    rental = _create_rental(client, equipment_name="Cross-country Skis")
+    original_due_date = date.fromisoformat(rental["due_date"])
+
+    response = client.put(
+        f"/rentals/{rental['id']}/extend",
+        json={"days": 3},
+    )
+
+    expected_due_date = original_due_date + timedelta(days=3)
+
+    assert response.status_code == 200
+    assert response.get_json()["due_date"] == expected_due_date.isoformat()
+    assert store.rentals[rental["id"]].due_date == expected_due_date
+
+
+def test_release_deposit_after_ski_equipment_is_returned(client):
+    """A returned ski rental allows its deposit hold to be released."""
+    rental = _create_rental(client, equipment_name="Touring Skis")
+
+    return_response = client.put(f"/rentals/{rental['id']}/return")
+    assert return_response.status_code == 200
+
+    release_response = client.put(
+        f"/rentals/{rental['id']}/deposit/release"
+    )
+
+    assert release_response.status_code == 200
+    assert release_response.get_json() == {
+        "rental_id": rental["id"],
+        "deposit_released": True,
+    }
+    assert store.rentals[rental["id"]].return_date == date.today()
