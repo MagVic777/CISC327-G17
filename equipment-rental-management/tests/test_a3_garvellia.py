@@ -3,25 +3,27 @@
 from unittest.mock import patch
 from datetime import date, timedelta
 from app import store
+from app.models.equipment import Equipment
+from app.models.renter import Renter
+from app.models.rental import Rental
 
 def _create_rental(client, equipment_name="Mountain Bike"):
-    """Helper matching Victor's test setup to ensure valid rental creation."""
-    eq_res = client.post("/equipment/", json={"name": equipment_name, "category": "Sports", "quantity": 5})
+    """Create equipment, renter, and rental via API endpoints (no trailing slashes)."""
+    eq_res = client.post("/equipment", json={"name": equipment_name, "category": "Sports"})
     eq_id = eq_res.get_json()["id"]
-    
-    renter_res = client.post("/renters/", json={"name": "Jane Doe", "email": "jane@example.com"})
+
+    renter_res = client.post("/renters", json={"name": "Jane Doe", "email": "jane@example.com"})
     renter_id = renter_res.get_json()["id"]
-    
-    rental_res = client.post("/rentals/", json={"equipment_id": eq_id, "renter_id": renter_id})
-    return rental_res.get_json()
+
+    rental_res = client.post("/rentals", json={"equipment_id": eq_id, "renter_id": renter_id})
+    return rental_res.get_json()["id"]
 
 
 # --- 1. NOTIFICATION FAILURE & NON-TRIGGER TESTS (TASK 2.3) ---
 
 def test_return_reminder_handles_notification_failure(client):
     """Stub: When send_notification returns False (failure), the endpoint still handles it gracefully."""
-    rental = _create_rental(client)
-    rental_id = rental["id"]
+    rental_id = _create_rental(client)
     
     # Patch send_notification to simulate a failure (returning False)
     with patch("app.routes.rentals.send_notification", return_value=False) as mock_send:
@@ -35,8 +37,7 @@ def test_return_reminder_handles_notification_failure(client):
 
 def test_return_reminder_sent_not_called_if_already_returned(client):
     """Mock (Non-trigger path): No notification is sent if equipment has already been returned."""
-    rental = _create_rental(client)
-    rental_id = rental["id"]
+    rental_id = _create_rental(client)
     
     client.put(f"/rentals/{rental_id}/return") # Return it first
     
