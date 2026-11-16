@@ -118,7 +118,7 @@ def test_renter_browser_create_list_and_delete(client):
 
     page_response = client.get("/ui/renters")
     assert page_response.status_code == 200
-    assert "Victor" in page_response.data
+    assert b"Victor" in page_response.data
 
     delete_response = client.post(f"/ui/renters/{renter.id}/delete")
     assert delete_response.status_code == 302
