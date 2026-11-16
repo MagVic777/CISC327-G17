@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request
 from app import store
 from app.models.rental import Rental
 from app.models.equipment_issue import EquipmentIssue
+from notification_service import send_notification
 
 rentals_bp = Blueprint("rentals", __name__, url_prefix="/rentals")
 
@@ -155,3 +156,34 @@ def report_equipment_issue(rental_id):
     item.is_available = False
 
     return jsonify(issue.to_dict()), 201
+
+
+@rentals_bp.route("/<int:rental_id>/return-reminder", methods=["POST"])
+def send_return_reminder(rental_id):
+    """Send a simulated reminder for an active equipment rental."""
+    rental = store.rentals.get(rental_id)
+    if rental is None:
+        return jsonify({"error": "Rental not found"}), 404
+
+    if rental.return_date is not None:
+        return jsonify({"error": "Equipment has already been returned"}), 400
+
+    item = store.equipment.get(rental.equipment_id)
+    renter = store.renters.get(rental.renter_id)
+    if item is None or renter is None:
+        return jsonify({"error": "Rental details are unavailable"}), 409
+
+    reminder_sent = send_notification(
+        renter.email,
+        f"Return reminder for {item.name}",
+        (
+            f"Hello {renter.name}, please return {item.name} "
+            f"by {rental.due_date.isoformat()}."
+        ),
+    )
+
+    return jsonify({
+        "rental_id": rental.id,
+        "due_date": rental.due_date.isoformat(),
+        "reminder_sent": reminder_sent,
+    })

@@ -56,6 +56,7 @@ app working without a REST client, and calls the same in-memory store.
 | PUT | `/rentals/<id>/return` | Return rented equipment |
 | GET | `/rentals?renter_id=&equipment_id=` | Look up rentals |
 | GET | `/rentals/overdue` | Report unreturned rentals whose due date is before today |
+| POST | `/rentals/<id>/return-reminder` | Attempt to send the renter a return reminder for an active rental |
 
 ## Tests
 
